@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POST 测试</title>
+    <script>
+        function sendPostRequest() {
+            const xhr = new XMLHttpRequest();
+            const url = 'https://jsonplaceholder.typicode.com/posts'; // 更改为 JSONPlaceholder
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+
+            // 定义要发送的请求体
+            const params = JSON.stringify({ key1: 'value1', key2: 'value2' });
+
+            // 处理响应
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 201) {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log('响应:', response);
+                        alert('请求成功！请查看控制台以获取响应。');
+                    } else {
+                        console.error('请求失败，状态码:', xhr.status);
+                        alert('请求失败，请查看控制台以获取更多信息。');
+                    }
+                }
+            };
+
+            // 发送请求
+            xhr.send(params);
+            console.log('发送的请求体:', params);
+        }
+    </script>
+</head>
+<body>
+<h1>POST 请求测试</h1>
+<button onclick="sendPostRequest()">发送 POST 请求</button>
+</body>
+</html>
