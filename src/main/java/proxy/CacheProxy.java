@@ -25,7 +25,7 @@ public class CacheProxy implements Runnable{
     protected String responseBody;
     protected final String CACHE_PATH = "src/main/resources/Cache/";
     protected String cacheFile;
-    protected int TIMEOUT = 2000; // 超时时间为2秒
+    protected int TIMEOUT = 5000; // 超时时间为5秒
 
     public CacheProxy(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -336,7 +336,9 @@ public class CacheProxy implements Runnable{
             // 写入空行以分隔头部和主体
             writer.newLine();
             // 写入响应体
-            writer.write(responseBody);
+            if (responseBody != null) {
+                writer.write(responseBody);
+            }
         } catch (IOException e) { System.out.println("未找到目录！！！！！"); }
     }
 

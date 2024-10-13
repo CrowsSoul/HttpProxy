@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <websites>
+        <website>today.hit.edu.cn</website>
+        <website>httpbin.org</website>
+        <website>example.com</website>
+    </websites>
+    <users>
+        <user>Crows</user>
+        <user>Admin</user>
+    </users>
+    <fishes>
+        <fish>example.com</fish>
+    </fishes>
+</configuration>
+
