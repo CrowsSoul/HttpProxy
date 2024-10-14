@@ -16,7 +16,8 @@ public class AdvancedProxy extends CacheProxy{
     private final String user;
     private final List<String> allowedHosts = new ArrayList<String>();
     private final List<String> allowedUsers = new ArrayList<String>();
-    private List<String> fishingHosts = new ArrayList<String>();
+    private final List<String> fishingHosts = new ArrayList<String>();
+    private String isAllowed = "ALL";
 
 
     /**
@@ -24,11 +25,12 @@ public class AdvancedProxy extends CacheProxy{
      * @param clientSocket 客户端 Socket
      * @param user 用户
      */
-    public AdvancedProxy(Socket clientSocket,String user) {
+    public AdvancedProxy(Socket clientSocket,String user,String a) {
         super(clientSocket);
         String configFilePath = "src/main/resources/config.xml";
         loadConfiguration(configFilePath);
         this.user = user;
+        this.isAllowed = a;
     }
 
     /**
@@ -102,7 +104,7 @@ public class AdvancedProxy extends CacheProxy{
             // 读取服务端信息
             getServerInfo();
             // 判断是否允许访问
-            if(!isAllowed()&&host!=null)
+            if(!isAllowed(isAllowed)&&host!=null)
             {
                 System.err.println("!!!***** "+user+" 不允许访问 "+host+" *****!!!");
                 return;
@@ -181,28 +183,45 @@ public class AdvancedProxy extends CacheProxy{
                     }
 
                 }
-                else // 处理POST请求
+                else if(method.equals("CONNECT"))
                 {
-                    // 发送请求头
-                    int requestBodyLength = sendRequestHeader();
+                    // 这里不要忘记将客户端的请求头读完
+                    connectRequestHeaders();
+                    // 处理CONNECT请求
+                    // 此时已经成功连接到目标服务器，因此需要返回给客户端200 Connection Established响应
+                    clientOutput.println("HTTP/1.1 200 Connection Established");
+                    clientOutput.println();// 空行
+                    clientOutput.flush();
+                    // 之后服务器直接进行转发即可
+                    // 双向转发数据
+                    try {
+                        InputStream clientByteInput = clientSocket.getInputStream();
+                        OutputStream clientByteOutput = clientSocket.getOutputStream();
 
-                    // 发送请求体（如果有的话）
-                    if (requestBodyLength > 0) {
-                        sendRequestBody(requestBodyLength);
-                    }
+                        InputStream serverByteInput = serverSocket.getInputStream();
+                        OutputStream serverByteOutput = serverSocket.getOutputStream();
 
-                    // 读取目标服务器响应并转发给客户端
-                    int responseBodyLength = sendResponseHeader();
+                        // 创建两个线程分别进行数据转发
+                        Thread clientToServer = new Thread(() -> transferData(clientByteInput, serverByteOutput));
+                        Thread serverToClient = new Thread(() -> transferData(serverByteInput, clientByteOutput));
 
-                    // 发送响应体（如果有的话）
-                    if (responseBodyLength > 0) {
-                        sendResponseBody(responseBodyLength);
-                    }
+
+                        clientToServer.start();
+                        serverToClient.start();
+
+                        // 等待线程结束后关闭套接字
+                        clientToServer.join();
+                        serverToClient.join();
+
+                    } catch (IOException | InterruptedException ignored) {}
+                }
+                else // 处理其他请求
+                {
+                    normalRequest();
                 }
             }
         }
-        catch(IOException e) {
-            e.printStackTrace();}
+        catch(IOException ignored) {}
         finally {
             try {
                 clientSocket.close();
@@ -211,38 +230,45 @@ public class AdvancedProxy extends CacheProxy{
     }
 
     // 判断当前类是否允许访问
-    private boolean isAllowed()
+    private boolean isAllowed(String s)
     {
-        // 只接收GET和POST请求
-        if(method == null || (!method.equals("GET") && !method.equals("POST")))
+        if(method == null || (!method.equals("GET") && !method.equals("POST")
+        && !method.equals("PUT") && !method.equals("DELETE")
+                &&!method.equals("HEAD")&&!method.equals("OPTIONS")&&!method.equals("CONNECT")))
         {
             return false;
         }
-        // 只接收HTTP协议
-        if(host == null ||port!=80)
+        // 只接收HTTP和HTTPS协议
+        if(host == null || (port!=80) && (port!=443))
         {
             return false;
         }
-        boolean f1 = false;
-        boolean f2 = false;
-        // 允许访问的网站
-        for(String allowedHost : allowedHosts)
-        {
-            if (host.equals(allowedHost)) {
-                f1 = true;
-                break;
+        if (!s.equals("ALL")) {
+            boolean f1 = false;
+            boolean f2 = false;
+            // 允许访问的网站
+            for(String allowedHost : allowedHosts)
+            {
+                if (host.equals(allowedHost)) {
+                    f1 = true;
+                    break;
+                }
             }
-        }
-        // 允许访问的用户
-        for(String allowedUser : allowedUsers)
-        {
-            if(user.equals(allowedUser)) {
-                f2 = true;
-                break;
+            // 允许访问的用户
+            for(String allowedUser : allowedUsers)
+            {
+                if(user.equals(allowedUser)) {
+                    f2 = true;
+                    break;
+                }
             }
-        }
 
-        return f1 && f2;
+            return f1 && f2;
+        }
+        else
+        {
+            return true;
+        }
     }
 
     // 发送钓鱼网站
@@ -276,6 +302,55 @@ public class AdvancedProxy extends CacheProxy{
             }
         }
         return ret;
+    }
+
+    // 处理一般的访问请求
+    private void normalRequest() throws IOException
+    {
+        // 发送请求头
+        int requestBodyLength = sendRequestHeader();
+
+        // 发送请求体（如果有的话）
+        if (requestBodyLength > 0) {
+            sendRequestBody(requestBodyLength);
+        }
+
+        // 读取目标服务器响应并转发给客户端
+        int responseBodyLength = sendResponseHeader();
+
+        // 发送响应体（如果有的话）
+        if (responseBodyLength > 0) {
+            sendResponseBody(responseBodyLength);
+        }
+    }
+
+    // 读取请求头到 requestHeaders 列表中
+    // CONNECT请求使用
+    // 不包括空行，发送时需手动添加！
+    public void connectRequestHeaders() throws IOException
+    {
+        System.out.println("----------RequestHeader----------");
+        requestHeaders.add(method + " " + url + " " + version);
+        System.out.println(method + " " + url + " " + version);
+
+        String headerLine;
+        while ((headerLine = clientInput.readLine()) != null && !headerLine.isEmpty()) {
+            requestHeaders.add(headerLine);
+            System.out.println(headerLine);
+        }
+        System.out.println("----------End----------");
+    }
+
+    // CONNECT之后加密传输使用
+    private void transferData(InputStream input, OutputStream output) {
+        try {
+            byte[] buffer = new byte[4096]; // 你可以根据需要调整缓冲区大小
+            int bytesRead;
+            while ((bytesRead = input.read(buffer)) != -1) {
+                output.write(buffer, 0, bytesRead);
+                output.flush();
+            }
+        } catch (IOException ignored) {}
     }
 
 }

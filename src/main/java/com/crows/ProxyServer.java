@@ -1,10 +1,7 @@
 package com.crows;
 
 import proxy.AdvancedProxy;
-import proxy.CacheProxy;
-import proxy.SimpleProxy;
 
-import javax.print.MultiDocPrintService;
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
@@ -12,7 +9,7 @@ import java.util.concurrent.*;
 
 public class ProxyServer {
     private static final int PORT = 10088;
-    private static final ExecutorService executor = Executors.newFixedThreadPool(10);
+    private static final ExecutorService executor = Executors.newFixedThreadPool(100);
 
     public static void main(String[] args)
     {
@@ -26,8 +23,9 @@ public class ProxyServer {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 clientSocket.setSoTimeout(10000); // 设置超时时间为10秒
-//                new Thread(new AdvancedProxy(clientSocket, user)).start();
-                executor.submit(new AdvancedProxy(clientSocket, user));
+                // 这里默认为ALL，即所有用户和域名都可访问
+                // 如果需要限制访问权限，则可将"ALL"替换为任意其他字符串
+                executor.submit(new AdvancedProxy(clientSocket, user,"ALL"));
             }
         } catch (IOException ignored) {}
     }

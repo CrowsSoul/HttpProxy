@@ -9,6 +9,7 @@
 * 支持If-modified-since首部行的条件GET请求
 * 可以对GET请求得到的响应进行缓存
 * 支持网站过滤、用户过滤、网站钓鱼等设置
+* **最新版本**：支持各种网站的访问，支持图片、视频等各种功能！
 
 ---
 
@@ -23,6 +24,10 @@
 主程序位于`src/main/java/com/crows/ProxyServer.java`：
 
 ```java
+public class ProxyServer {
+    private static final int PORT = 10088;
+    private static final ExecutorService executor = Executors.newFixedThreadPool(100);
+
     public static void main(String[] args)
     {
         try (ServerSocket serverSocket = new ServerSocket(PORT); Scanner s = new Scanner(System.in)) {
@@ -35,14 +40,18 @@
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 clientSocket.setSoTimeout(10000); // 设置超时时间为10秒
-//                new Thread(new AdvancedProxy(clientSocket, user)).start();
-                executor.submit(new AdvancedProxy(clientSocket, user));
+                // 这里默认为ALL，即所有用户和域名都可访问
+                // 如果需要限制访问权限，则可将"ALL"替换为任意其他字符串
+                executor.submit(new AdvancedProxy(clientSocket, user,"ALL"));
             }
         } catch (IOException ignored) {}
     }
+}
 ```
 
 使用线程池为HTTP报文创建Proxy类进行处理。可以选择`SimpleProxy`、`CacheProxy` 和`AdvancedProxy`三种实现类。建议使用**AdvancedProxy**，因为只有它支持上面的所有功能。
+
+**这里创建AdvancedProxy时，如果指定参数"ALL"，则取消用户和网站的过滤功能。若想启用，传入任意其他字符串即可。**
 
 根据系统提示输入用户名即可开启代理服务器。
 

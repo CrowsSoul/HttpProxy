@@ -25,7 +25,7 @@ public class CacheProxy implements Runnable{
     protected String responseBody;
     protected final String CACHE_PATH = "src/main/resources/Cache/";
     protected String cacheFile;
-    protected int TIMEOUT = 5000; // 超时时间为5秒
+    protected int TIMEOUT = 30000; // 超时时间为30秒
 
     public CacheProxy(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -135,8 +135,10 @@ public class CacheProxy implements Runnable{
         }
         catch(IOException e) {
             e.printStackTrace();}
-        finally {
-            try {
+        finally
+        {
+            try
+            {
                 clientSocket.close();
             } catch (IOException ignored) {}
         }
@@ -147,12 +149,20 @@ public class CacheProxy implements Runnable{
         String requestLine = null;
         try {
             requestLine = clientInput.readLine();
+            System.out.println("第一行：" +requestLine);
         } catch (SocketTimeoutException ignored) {}
         if (requestLine != null) {
             String[] requestParts = requestLine.split(" ");
             method = requestParts[0]; // 请求方法
             url = requestParts[1]; // 请求 URL
             version = requestParts[2]; // HTTP 版本
+
+            // 解析 URL
+            // 这里只处理 http 和 https 协议，其他协议直接返回
+            if (!url.startsWith("http://"))
+            {
+                url = "https://" + url;
+            }
 
             // 缓存文件名
             cacheFile = CACHE_PATH + generateCacheFileName(url)+".txt";
@@ -167,8 +177,10 @@ public class CacheProxy implements Runnable{
             }
             // 获取目标主机
             host = targetUrl.getHost();
+            System.out.println("目标主机：" + host);
             // 获取目标主机和端口
             port = targetUrl.getPort() == -1 ? (targetUrl.getProtocol().equals("https") ? 443 : 80) : targetUrl.getPort();
+            System.out.println("目标端口：" + port);
         }
     }
 
@@ -386,7 +398,7 @@ public class CacheProxy implements Runnable{
         serverOutput.println(); // 结束请求头
     }
 
-    // 以下方法用于处理POST请求
+    // 以下方法用于处理一般请求
 
     //用于发送请求头
     //返回请求体的长度
